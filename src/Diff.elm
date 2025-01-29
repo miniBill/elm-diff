@@ -191,13 +191,17 @@ makeChangesHelp areSimilar changes getA getB ( x, y ) path =
                                         Err (CannotGetB y)
 
                                     Just b ->
-                                        case areSimilar a b of
-                                            Just s ->
-                                                Ok (Similar a b s)
+                                        if a == b then
+                                            Ok (NoChange a)
 
-                                            Nothing ->
-                                                --  This implies a == b by construction. I hope.
-                                                Ok (NoChange a)
+                                        else
+                                            case areSimilar a b of
+                                                Just s ->
+                                                    Ok (Similar a b s)
+
+                                                Nothing ->
+                                                    --  This implies a == b by construction. I hope.
+                                                    Ok (NoChange a)
 
                             Nothing ->
                                 Err (CannotGetA x)
