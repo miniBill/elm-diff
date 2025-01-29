@@ -1,8 +1,8 @@
-module Tests exposing (..)
+module Tests exposing (basic, perf)
 
-import Diff exposing (..)
+import Diff exposing (Change(..), diff, diffLines)
 import Expect exposing (Expectation)
-import Test exposing (..)
+import Test exposing (Test, describe, test)
 
 
 basic : Test
@@ -28,10 +28,11 @@ basic =
 runManyTimes : Int -> String -> String -> (() -> Expectation)
 runManyTimes times a_ b_ =
     let
+        total : Int
         total =
-            List.foldl (\i n -> n + List.length (diffLines a_ b_)) 0 (List.range 1 times)
+            List.foldl (\_ n -> n + List.length (diffLines a_ b_)) 0 (List.range 1 times)
     in
-    \_ -> Expect.true "" (total > 0)
+    \_ -> total |> Expect.greaterThan 0
 
 
 perf : Test
@@ -58,38 +59,47 @@ perf =
         ]
 
 
+b : String
 b =
     "first\n" ++ a
 
 
+c : String
 c =
     a ++ "\nlast"
 
 
+d : String
 d =
     mapLines (List.drop 1) a
 
 
+e : String
 e =
     mapLines (List.take 100) a ++ mapLines (List.drop 101) a
 
 
+f : String
 f =
     mapLines (List.take 101) a ++ mapLines (List.drop 100) a
 
 
+g : String
 g =
-    mapEachLine ((++) "_") a
+    mapEachLine (\l -> "_" ++ l) a
 
 
+mapLines : (List String -> List String) -> String -> String
 mapLines f_ s =
     String.join "\n" (f_ (String.lines s))
 
 
+mapEachLine : (String -> String) -> String -> String
 mapEachLine f_ s =
     mapLines (List.map f_) s
 
 
+a : String
 a =
     """
 { a =

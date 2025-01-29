@@ -1,9 +1,9 @@
 {
     "type": "package",
-    "name": "jinjor/elm-diff",
-    "summary": "A diff implementation for Elm",
+    "name": "miniBill/elm-diff",
+    "summary": "A diff implementation for Elm - fork of jinjor/elm-diff",
     "license": "BSD-3-Clause",
-    "version": "1.0.6",
+    "version": "1.0.0",
     "exposed-modules": [
         "Diff"
     ],
@@ -12,6 +12,6 @@
         "elm/core": "1.0.0 <= v < 2.0.0"
     },
     "test-dependencies": {
-        "elm-explorations/test": "1.0.0 <= v < 2.0.0"
+        "elm-explorations/test": "2.0.0 <= v < 3.0.0"
     }
 }
