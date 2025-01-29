@@ -3,7 +3,7 @@
     "name": "miniBill/elm-diff",
     "summary": "A diff implementation for Elm - fork of jinjor/elm-diff",
     "license": "BSD-3-Clause",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "exposed-modules": [
         "Diff"
     ],
