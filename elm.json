@@ -4,12 +4,12 @@
     "summary": "A diff implementation for Elm - fork of jinjor/elm-diff",
     "license": "BSD-3-Clause",
     "version": "1.0.1",
-    "exposed-modules": [
-        "Diff"
-    ],
+    "exposed-modules": ["Diff", "Diff.ToString"],
     "elm-version": "0.19.0 <= v < 0.20.0",
     "dependencies": {
-        "elm/core": "1.0.0 <= v < 2.0.0"
+        "elm/core": "1.0.0 <= v < 2.0.0",
+        "elmcraft/core-extra": "2.1.0 <= v < 3.0.0",
+        "wolfadex/elm-ansi": "3.0.0 <= v < 4.0.0"
     },
     "test-dependencies": {
         "elm-explorations/test": "2.0.0 <= v < 3.0.0"
