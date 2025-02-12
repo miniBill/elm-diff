@@ -1,7 +1,7 @@
 module Diff exposing
     ( Change(..)
-    , diff, diffLines
-    , diffWith
+    , diff, diffLines, diffWith
+    , diffLinesWith, DiffOptions, defaultOptions, ignoreLeadingWhitespace, equalIf, similarIf
     )
 
 {-| Compares two list and returns how they have changed.
@@ -15,9 +15,9 @@ Each function internally uses Wu's [O(NP) algorithm](http://myerslab.mpi-cbg.de/
 
 # Diffing
 
-@docs diff, diffLines
+@docs diff, diffLines, diffWith
 
-@docs diffWith
+@docs diffLinesWith, DiffOptions, defaultOptions, ignoreLeadingWhitespace, equalIf, similarIf
 
 -}
 
@@ -89,6 +89,25 @@ diffLines a b =
 
     diff [ 1, 3 ] [ 2, 3 ]
     --> [ Removed 1, Added 2, NoChange 3 ]
+
+This will never produce `Similar`, so you can use `never` in that branch.
+
+    diff a b
+        |> List.map
+            (\change ->
+                case change of
+                    Diff.Added _ ->
+                        1
+
+                    Diff.Removed _ ->
+                        -1
+
+                    Diff.NoChange _ ->
+                        0
+
+                    Diff.Similar _ _ ever ->
+                        never ever
+            )
 
 -}
 diff : List a -> List a -> List (Change Never a)
@@ -200,7 +219,7 @@ makeChangesHelp areSimilar changes getA getB ( x, y ) path =
                                                     Ok (Similar a b s)
 
                                                 Nothing ->
-                                                    --  This implies a == b by construction. I hope.
+                                                    -- This should not happen
                                                     Ok (NoChange a)
 
                             Nothing ->
@@ -369,3 +388,103 @@ snake areSimilar getA getB nextX nextY path =
 
         _ ->
             ( path, False )
+
+
+{-| Options for diffing multiline strings.
+-}
+type DiffOptions
+    = DiffOptions
+        { equalIf : String -> String -> Bool
+        , similarIf : ( String, List Char ) -> ( String, List Char ) -> Maybe (List (Change Never Char))
+        }
+
+
+{-| Calculate the diff between two multiline strings.
+-}
+diffLinesWith : DiffOptions -> String -> String -> List (Change (List (Change Never Char)) String)
+diffLinesWith (DiffOptions options) from to =
+    let
+        prepare : String -> List ( String, List Char )
+        prepare s =
+            s
+                |> String.lines
+                |> List.map (\line -> ( line, String.toList line ))
+    in
+    diffWith
+        (\(( bs, _ ) as b) (( as_, _ ) as a) ->
+            if options.equalIf bs as_ then
+                Just (Err ())
+
+            else
+                options.similarIf b a
+                    |> Maybe.map Ok
+        )
+        (prepare from)
+        (prepare to)
+        |> List.map
+            (\change ->
+                case change of
+                    Added ( a, _ ) ->
+                        Added a
+
+                    Removed ( r, _ ) ->
+                        Removed r
+
+                    NoChange ( n, _ ) ->
+                        NoChange n
+
+                    Similar ( b, _ ) _ (Err ()) ->
+                        NoChange b
+
+                    Similar ( b, _ ) ( a, _ ) (Ok d) ->
+                        Similar b a d
+            )
+
+
+{-| Default comparison options.
+-}
+defaultOptions : DiffOptions
+defaultOptions =
+    DiffOptions
+        { equalIf = (==)
+        , similarIf = \_ _ -> Nothing
+        }
+
+
+{-| Configure when to consider two lines equal.
+
+As an example you can use `\l r -> String.trim l == String.trim r` to ignore whitespace around lines.
+
+-}
+equalIf : (String -> String -> Bool) -> DiffOptions -> DiffOptions
+equalIf eq (DiffOptions options) =
+    DiffOptions { options | equalIf = eq }
+
+
+{-| Configure when to consider two lines similar.
+-}
+similarIf : (String -> String -> Bool) -> DiffOptions -> DiffOptions
+similarIf similar (DiffOptions options) =
+    DiffOptions
+        { options
+            | similarIf =
+                \( ls, ll ) ( rs, rl ) ->
+                    if similar ls rs then
+                        Just (diff ll rl)
+
+                    else
+                        Nothing
+        }
+
+
+{-| Ignore leading whitespace when comparing multiline strings.
+
+    diffLinesWith (defaultOptions |> ignoreLeadingWhitespace) "a" "  a"
+    --> [ NoChange "a" ]
+
+Equivalent to `equalIf (\a b -> String.trimLeft a == String.trimLeft b)`.
+
+-}
+ignoreLeadingWhitespace : DiffOptions -> DiffOptions
+ignoreLeadingWhitespace options =
+    equalIf (\a b -> String.trimLeft a == String.trimLeft b) options
