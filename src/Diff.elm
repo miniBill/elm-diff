@@ -22,6 +22,7 @@ Each function internally uses Wu's [O(NP) algorithm](http://myerslab.mpi-cbg.de/
 -}
 
 import Array exposing (Array)
+import List.Extra
 
 
 {-| This describes how each line has changed and also contains its value.
@@ -447,8 +448,36 @@ defaultOptions : DiffOptions
 defaultOptions =
     DiffOptions
         { equalIf = (==)
-        , similarIf = \_ _ -> Nothing
+        , similarIf = smallDifference
         }
+
+
+smallDifference : ( String, List Char ) -> ( String, List Char ) -> Maybe (List (Change Never Char))
+smallDifference ( ls, ll ) ( rs, rl ) =
+    let
+        delta : List (Change Never Char)
+        delta =
+            diff ll rl
+
+        minLength : Int
+        minLength =
+            min (String.length (String.trim ls)) (String.length (String.trim rs))
+    in
+    if List.Extra.count isChange delta < minLength // 2 then
+        Just delta
+
+    else
+        Nothing
+
+
+isChange : Change similar a -> Bool
+isChange c =
+    case c of
+        NoChange _ ->
+            False
+
+        _ ->
+            True
 
 
 {-| Configure when to consider two lines equal.
