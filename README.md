@@ -10,3 +10,33 @@ This library implements [Wu's O(NP) algorithm](http://myerslab.mpi-cbg.de/wp-con
 ## LICENSE
 
 BSD-3-Clause
+
+## Using `Diff.diffLinesWith` with `elm-test`
+
+You can use this function to pretty print differences when comparing `String`s in `elm-test`.
+
+```elm
+expectEqualMultiline : String -> String -> Expect.Expectation
+expectEqualMultiline exp actual =
+    if exp == actual then
+        Expect.pass
+
+    else
+        let
+            header : String
+            header =
+                Ansi.Color.fontColor Ansi.Color.blue "Diff from expected to actual:"
+        in
+        Expect.fail
+            (header
+                ++ "\n"
+                ++ (Diff.diffLinesWith
+                        (Diff.defaultOptions
+                            |> Diff.ignoreLeadingWhitespace
+                        )
+                        exp
+                        actual
+                        |> Diff.ToString.diffToString { context = 4, color = True }
+                   )
+            )
+```
