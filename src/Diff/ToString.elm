@@ -69,14 +69,14 @@ changeToString options change =
 
         Added line ->
             if options.color then
-                Ansi.Color.fontColor Ansi.Color.green ("+" ++ line)
+                brightGreen ("+" ++ line)
 
             else
                 "+" ++ line
 
         Removed line ->
             if options.color then
-                Ansi.Color.fontColor Ansi.Color.red ("-" ++ line)
+                brightRed ("-" ++ line)
 
             else
                 "-" ++ line
@@ -99,9 +99,15 @@ lineChangeToString options lines =
                                     s =
                                         String.fromChar c
                                 in
-                                ( s :: beforeAcc
-                                , s :: afterAcc
-                                )
+                                if options.color then
+                                    ( brightRed s :: beforeAcc
+                                    , brightGreen s :: afterAcc
+                                    )
+
+                                else
+                                    ( s :: beforeAcc
+                                    , s :: afterAcc
+                                    )
 
                             Added a ->
                                 let
@@ -109,6 +115,7 @@ lineChangeToString options lines =
                                     s =
                                         if options.color then
                                             String.fromChar a
+                                                |> Ansi.Color.fontColor Ansi.Color.black
                                                 |> Ansi.Color.backgroundColor Ansi.Color.green
 
                                         else
@@ -124,6 +131,7 @@ lineChangeToString options lines =
                                     s =
                                         if options.color then
                                             String.fromChar r
+                                                |> Ansi.Color.fontColor Ansi.Color.white
                                                 |> Ansi.Color.backgroundColor Ansi.Color.red
 
                                         else
@@ -136,14 +144,28 @@ lineChangeToString options lines =
                     ( [], [] )
     in
     if options.color then
-        Ansi.Color.fontColor Ansi.Color.red ("-" ++ String.concat befores)
+        brightRed ("-" ++ String.concat befores)
             ++ "\n"
-            ++ Ansi.Color.fontColor Ansi.Color.green ("+" ++ String.concat afters)
+            ++ brightGreen ("+" ++ String.concat afters)
 
     else
         ("-" ++ String.concat befores)
             ++ "\n"
             ++ ("+" ++ String.concat afters)
+
+
+brightGreen : String -> String
+brightGreen s =
+    s
+        |> Ansi.Color.fontColor Ansi.Color.black
+        |> Ansi.Color.backgroundColor Ansi.Color.brightGreen
+
+
+brightRed : String -> String
+brightRed s =
+    s
+        |> Ansi.Color.fontColor Ansi.Color.white
+        |> Ansi.Color.backgroundColor Ansi.Color.brightRed
 
 
 gatherGroups : List (Change similar a) -> List ( Change similar a, List (Change similar a) )
