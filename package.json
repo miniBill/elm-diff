@@ -1,8 +1,12 @@
 {
-  "license": "BSD-3-Clause",
-  "devDependencies": {
-    "elm-review": "^2.13.5",
-    "elm-test-rs": "^3.0.1-0",
-    "elm-verify-examples": "^6.0.3"
-  }
+    "license": "BSD-3-Clause",
+    "devDependencies": {
+        "elm-review": "^2.13.5",
+        "elm-test-rs": "^3.0.1-0",
+        "elm-verify-examples": "^6.0.3",
+        "patch-package": "^8.0.1"
+    },
+    "scripts": {
+        "postinstall": "patch-package"
+    }
 }
