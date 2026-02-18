@@ -118,7 +118,7 @@ diff =
 
 {-| Compares general lists. Allows specifying when two elements are similar.
 
-    diff (\l r -> if abs (l - r) < 1 then Just () else Nothing) [ 1, 3 ] [ 2, 3 ]
+    diffWith (\l r -> if abs (l - r) <= 1 then Just () else Nothing) [ 1, 3 ] [ 2, 3 ]
     --> [ Similar 1 2 (), NoChange 3 ]
 
 -}
