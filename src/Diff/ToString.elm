@@ -1,8 +1,18 @@
-module Diff.ToString exposing (diffToString)
+module Diff.ToString exposing
+    ( Theme, Colors
+    , diffToString
+    , dracula
+    )
 
 {-| Convert a diff to a string representation.
 
+@docs Theme, Colors
 @docs diffToString
+
+
+## Themes
+
+@docs dracula
 
 -}
 
@@ -11,12 +21,106 @@ import Diff exposing (Change(..))
 import List.Extra
 
 
+{-| Colors to use to highlight the diff.
+
+If the two inputs are:
+
+        removed
+        unchanged changedBefore
+
+and
+
+        unchanged changedAfter
+        added
+
+Then `unchanged` will have the `unchangedBefore` color in the `-` lines and `unchangedAfter` color in the `+` lines, and everything else will have the color with the same name.
+
+-}
+type alias Theme =
+    { removed : Colors
+    , unchangedBefore : Colors
+    , unchangedAfter : Colors
+    , changedBefore : Colors
+    , changedAfter : Colors
+    , added : Colors
+    }
+
+
+{-| A foreground/background color pair.
+
+Use `Nothing` to avoid changing the color.
+
+-}
+type alias Colors =
+    { foreground : Maybe Ansi.Color.Color
+    , background : Maybe Ansi.Color.Color
+    }
+
+
+{-| A theme inspired by the [Dracula](https://draculatheme.com) color scheme as used by [`delta`](https://github.com/dandavison/delta).
+-}
+dracula : Theme
+dracula =
+    let
+        color : Int -> Int -> Int -> Ansi.Color.Color
+        color red green blue =
+            Ansi.Color.CustomTrueColor
+                { red = red
+                , green = green
+                , blue = blue
+                }
+
+        offWhite : Ansi.Color.Color
+        offWhite =
+            color 0xDE 0xDE 0xDE
+
+        darkGreen : Ansi.Color.Color
+        darkGreen =
+            color 0x0C 0x26 0x05
+
+        brightGreen : Ansi.Color.Color
+        brightGreen =
+            color 0x27 0x5D 0x17
+
+        darkRed : Ansi.Color.Color
+        darkRed =
+            color 0x38 0x04 0x02
+
+        brightRed : Ansi.Color.Color
+        brightRed =
+            color 0x84 0x1F 0x19
+
+        white : Ansi.Color.Color
+        white =
+            color 0xFF 0xFF 0xFF
+
+        removed : Colors
+        removed =
+            { background = Just darkRed
+            , foreground = Just offWhite
+            }
+
+        added : Colors
+        added =
+            { background = Just darkGreen
+            , foreground = Just white
+            }
+    in
+    { removed = removed
+    , unchangedBefore = removed
+    , changedBefore = { foreground = Just offWhite, background = Just brightRed }
+    , changedAfter = { foreground = Just white, background = Just brightGreen }
+    , unchangedAfter = added
+    , added = added
+    }
+
+
 {-| Converts a diff between strings into a pretty-printed, optionally colored, formatted diff.
 
 `context` is the number of lines of context to show in the diff.
 
 -}
-diffToString : { context : Int, color : Bool } -> List (Change (List (Change Never Char)) String) -> String
+diffToString : { context : Int, colors : Maybe Theme } -> List (Change (List (Change Never Char)) String) -> String
 diffToString options lines =
     let
         groups : List ( Change (List (Change Never Char)) String, List (Change (List (Change Never Char)) String) )
@@ -58,7 +162,7 @@ diffToString options lines =
         |> String.join "\n"
 
 
-changeToString : { a | color : Bool } -> Change (List (Change Never Char)) String -> String
+changeToString : { a | colors : Maybe Theme } -> Change (List (Change Never Char)) String -> String
 changeToString options change =
     case change of
         NoChange before ->
@@ -68,21 +172,38 @@ changeToString options change =
             lineChangeToString options d
 
         Added line ->
-            if options.color then
-                brightGreen ("+" ++ line)
-
-            else
-                "+" ++ line
+            colorWith .added options ("+" ++ line)
 
         Removed line ->
-            if options.color then
-                brightRed ("-" ++ line)
-
-            else
-                "-" ++ line
+            colorWith .removed options ("-" ++ line)
 
 
-lineChangeToString : { a | color : Bool } -> List (Change Never Char) -> String
+colorWith : (Theme -> Colors) -> { a | colors : Maybe Theme } -> String -> String
+colorWith toColor options input =
+    case options.colors of
+        Nothing ->
+            input
+
+        Just theme ->
+            let
+                { foreground, background } =
+                    toColor theme
+            in
+            case ( foreground, background ) of
+                ( Just f, Just b ) ->
+                    Ansi.Color.fontColor f (Ansi.Color.backgroundColor b input)
+
+                ( Nothing, Just b ) ->
+                    Ansi.Color.backgroundColor b input
+
+                ( Just f, Nothing ) ->
+                    Ansi.Color.fontColor f input
+
+                ( Nothing, Nothing ) ->
+                    input
+
+
+lineChangeToString : { a | colors : Maybe Theme } -> List (Change Never Char) -> String
 lineChangeToString options lines =
     let
         ( befores, afters ) =
@@ -99,73 +220,35 @@ lineChangeToString options lines =
                                     s =
                                         String.fromChar c
                                 in
-                                if options.color then
-                                    ( brightRed s :: beforeAcc
-                                    , brightGreen s :: afterAcc
-                                    )
-
-                                else
-                                    ( s :: beforeAcc
-                                    , s :: afterAcc
-                                    )
+                                ( colorWith .unchangedBefore options s :: beforeAcc
+                                , colorWith .unchangedAfter options s :: afterAcc
+                                )
 
                             Added a ->
                                 let
                                     s : String
                                     s =
-                                        if options.color then
-                                            String.fromChar a
-                                                |> Ansi.Color.fontColor Ansi.Color.black
-                                                |> Ansi.Color.backgroundColor Ansi.Color.green
-
-                                        else
-                                            String.fromChar a
+                                        String.fromChar a
                                 in
                                 ( beforeAcc
-                                , s :: afterAcc
+                                , colorWith .changedAfter options s :: afterAcc
                                 )
 
                             Removed r ->
                                 let
                                     s : String
                                     s =
-                                        if options.color then
-                                            String.fromChar r
-                                                |> Ansi.Color.fontColor Ansi.Color.white
-                                                |> Ansi.Color.backgroundColor Ansi.Color.red
-
-                                        else
-                                            String.fromChar r
+                                        String.fromChar r
                                 in
-                                ( s :: beforeAcc
+                                ( colorWith .changedBefore options s :: beforeAcc
                                 , afterAcc
                                 )
                     )
                     ( [], [] )
     in
-    if options.color then
-        brightRed ("-" ++ String.concat befores)
-            ++ "\n"
-            ++ brightGreen ("+" ++ String.concat afters)
-
-    else
-        ("-" ++ String.concat befores)
-            ++ "\n"
-            ++ ("+" ++ String.concat afters)
-
-
-brightGreen : String -> String
-brightGreen s =
-    s
-        |> Ansi.Color.fontColor Ansi.Color.black
-        |> Ansi.Color.backgroundColor Ansi.Color.brightGreen
-
-
-brightRed : String -> String
-brightRed s =
-    s
-        |> Ansi.Color.fontColor Ansi.Color.white
-        |> Ansi.Color.backgroundColor Ansi.Color.brightRed
+    colorWith .unchangedBefore options ("-" ++ String.concat befores)
+        ++ "\n"
+        ++ colorWith .unchangedAfter options ("+" ++ String.concat afters)
 
 
 gatherGroups : List (Change similar a) -> List ( Change similar a, List (Change similar a) )
