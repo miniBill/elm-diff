@@ -8,6 +8,6 @@
     },
     "scripts": {
         "postinstall": "patch-package",
-        "test": "elm-verify-examples && elm-test-rs"
+        "test": "elm-verify-examples -w && elm-test-rs"
     }
 }
