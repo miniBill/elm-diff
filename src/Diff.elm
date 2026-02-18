@@ -39,10 +39,11 @@ type StepResult
     | Found (List ( Int, Int ))
 
 
-type BugReport
-    = CannotGetA Int
-    | CannotGetB Int
-    | UnexpectedPath ( Int, Int ) (List ( Int, Int ))
+
+-- type BugReport
+--     = CannotGetA Int
+--     | CannotGetB Int
+--     | UnexpectedPath ( Int, Int ) (List ( Int, Int ))
 
 
 {-| Compares two text. Considers two lines similar if they are equivalent ignoring spaces.
@@ -124,18 +125,19 @@ diff =
 -}
 diffWith : (a -> a -> Maybe similar) -> List a -> List a -> List (Change similar a)
 diffWith areSimilar a b =
-    case testDiff areSimilar a b of
-        Ok changes ->
-            changes
-
-        Err _ ->
-            []
+    testDiff areSimilar a b
+        |> Maybe.withDefault []
 
 
 {-| Test the algorithm itself.
 If it returns Err, it should be a bug.
 -}
-testDiff : (a -> a -> Maybe similar) -> List a -> List a -> Result BugReport (List (Change similar a))
+testDiff :
+    (a -> a -> Maybe similar)
+    -> List a
+    -> List a
+    -- -> Result BugReport (List (Change similar a))
+    -> Maybe (List (Change similar a))
 testDiff areSimilar a b =
     let
         arrA : Array a
@@ -157,12 +159,12 @@ testDiff areSimilar a b =
         -- Elm's Array doesn't allow null element,
         -- so we'll use shifted index to access source.
         getA : Int -> Maybe a
-        getA =
-            \x -> Array.get (x - 1) arrA
+        getA x =
+            Array.get (x - 1) arrA
 
         getB : Int -> Maybe a
-        getB =
-            \y -> Array.get (y - 1) arrB
+        getB y =
+            Array.get (y - 1) arrB
 
         path : List ( Int, Int )
         path =
@@ -176,11 +178,13 @@ makeChanges :
     -> (Int -> Maybe a)
     -> (Int -> Maybe a)
     -> List ( Int, Int )
-    -> Result BugReport (List (Change similar a))
+    -- -> Result BugReport (List (Change similar a))
+    -> Maybe (List (Change similar a))
 makeChanges areSimilar getA getB path =
     case path of
         [] ->
-            Ok []
+            -- Ok []
+            Just []
 
         latest :: tail ->
             makeChangesHelp areSimilar [] getA getB latest tail
@@ -193,64 +197,80 @@ makeChangesHelp :
     -> (Int -> Maybe a)
     -> ( Int, Int )
     -> List ( Int, Int )
-    -> Result BugReport (List (Change similar a))
+    -- -> Result BugReport (List (Change similar a))
+    -> Maybe (List (Change similar a))
 makeChangesHelp areSimilar changes getA getB ( x, y ) path =
     case path of
         [] ->
-            Ok changes
+            -- Ok changes
+            Just changes
 
         ( prevX, prevY ) :: tail ->
             let
-                change : Result BugReport (Change similar a)
+                -- change : Result BugReport (Change similar a)
+                change : Maybe (Change similar a)
                 change =
                     if x - 1 == prevX && y - 1 == prevY then
                         case getA x of
                             Just a ->
                                 case getB y of
                                     Nothing ->
-                                        Err (CannotGetB y)
+                                        -- Err (CannotGetB y)
+                                        Nothing
 
                                     Just b ->
                                         if a == b then
-                                            Ok (NoChange a)
+                                            -- Ok (NoChange a)
+                                            Just (NoChange a)
 
                                         else
                                             case areSimilar a b of
                                                 Just s ->
-                                                    Ok (Similar a b s)
+                                                    -- Ok (Similar a b s)
+                                                    Just (Similar a b s)
 
                                                 Nothing ->
                                                     -- This should not happen
-                                                    Ok (NoChange a)
+                                                    -- Ok (NoChange a)
+                                                    Just (NoChange a)
 
                             Nothing ->
-                                Err (CannotGetA x)
+                                -- Err (CannotGetA x)
+                                Nothing
 
                     else if x == prevX then
                         case getB y of
                             Just b ->
-                                Ok (Added b)
+                                -- Ok (Added b)
+                                Just (Added b)
 
                             Nothing ->
-                                Err (CannotGetB y)
+                                -- Err (CannotGetB y)
+                                Nothing
 
                     else if y == prevY then
                         case getA x of
                             Just a ->
-                                Ok (Removed a)
+                                -- Ok (Removed a)
+                                Just (Removed a)
 
                             Nothing ->
-                                Err (CannotGetA x)
+                                -- Err (CannotGetA x)
+                                Nothing
 
                     else
-                        Err (UnexpectedPath ( x, y ) path)
+                        -- Err (UnexpectedPath ( x, y ) path)
+                        Nothing
             in
             case change of
-                Ok c ->
+                -- Ok c ->
+                Just c ->
                     makeChangesHelp areSimilar (c :: changes) getA getB ( prevX, prevY ) tail
 
-                Err e ->
-                    Err e
+                -- Err e ->
+                Nothing ->
+                    -- Err e
+                    Nothing
 
 
 {-| Wu's O(NP) algorithm (<http://myerslab.mpi-cbg.de/wp-content/uploads/2014/06/np_diff.pdf>)
@@ -260,7 +280,7 @@ onp areSimilar getA getB m n =
     let
         v : Array (List ( Int, Int ))
         v =
-            Array.initialize (m + n + 1) (always [])
+            Array.repeat (m + n + 1) []
 
         delta : Int
         delta =
