@@ -1,20 +1,17 @@
 module Diff.ToString exposing
-    ( Theme, Colors
-    , diffToString
-    , dracula
+    ( diffToString
+    --, Colors, Theme, dracula
     )
 
 {-| Convert a diff to a string representation.
 
-@docs Theme, Colors
 @docs diffToString
 
-
-## Themes
-
-@docs dracula
-
 -}
+
+-- @docs Theme, Colors
+-- ## Themes
+-- @docs dracula
 
 import Ansi.Color
 import Diff exposing (Change(..))
@@ -120,7 +117,7 @@ dracula =
 `context` is the number of lines of context to show in the diff.
 
 -}
-diffToString : { context : Int, colors : Maybe Theme } -> List (Change (List (Change Never Char)) String) -> String
+diffToString : { context : Int, color : Bool } -> List (Change (List (Change Never Char)) String) -> String
 diffToString options lines =
     let
         groups : List ( Change (List (Change Never Char)) String, List (Change (List (Change Never Char)) String) )
@@ -158,7 +155,15 @@ diffToString options lines =
                         head :: tail
             )
         |> List.concat
-        |> List.map (changeToString options)
+        |> List.map
+            (changeToString
+                (if options.color then
+                    { colors = Just dracula }
+
+                 else
+                    { colors = Nothing }
+                )
+            )
         |> String.join "\n"
 
 
