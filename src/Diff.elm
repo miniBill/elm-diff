@@ -125,7 +125,7 @@ diff =
 -}
 diffWith : (a -> a -> Maybe similar) -> List a -> List a -> List (Change similar a)
 diffWith areSimilar a b =
-    testDiff areSimilar a b
+    testDiff (==) areSimilar a b
         |> Maybe.withDefault []
 
 
@@ -133,12 +133,13 @@ diffWith areSimilar a b =
 If it returns Err, it should be a bug.
 -}
 testDiff :
-    (a -> a -> Maybe similar)
+    (a -> a -> Bool)
+    -> (a -> a -> Maybe similar)
     -> List a
     -> List a
     -- -> Result BugReport (List (Change similar a))
     -> Maybe (List (Change similar a))
-testDiff areSimilar a b =
+testDiff areEqual areSimilar a b =
     let
         arrA : Array a
         arrA =
@@ -168,7 +169,7 @@ testDiff areSimilar a b =
 
         path : List ( Int, Int )
         path =
-            onp areSimilar getA getB m n
+            onp areEqual areSimilar getA getB m n
     in
     makeChanges areSimilar getA getB path
 
@@ -275,8 +276,8 @@ makeChangesHelp areSimilar changes getA getB ( x, y ) path =
 
 {-| Wu's O(NP) algorithm (<http://myerslab.mpi-cbg.de/wp-content/uploads/2014/06/np_diff.pdf>)
 -}
-onp : (a -> a -> Maybe similar) -> (Int -> Maybe a) -> (Int -> Maybe a) -> Int -> Int -> List ( Int, Int )
-onp areSimilar getA getB m n =
+onp : (a -> a -> Bool) -> (a -> a -> Maybe similar) -> (Int -> Maybe a) -> (Int -> Maybe a) -> Int -> Int -> List ( Int, Int )
+onp areEqual areSimilar getA getB m n =
     let
         v : Array (List ( Int, Int ))
         v =
@@ -286,7 +287,7 @@ onp areSimilar getA getB m n =
         delta =
             n - m
     in
-    onpLoopP (snake areSimilar getA getB) delta m 0 v
+    onpLoopP (snake areEqual areSimilar getA getB) delta m 0 v
 
 
 onpLoopP :
@@ -382,18 +383,20 @@ step snake_ offset k v =
 
 
 snake :
-    (a -> a -> Maybe similar)
+    (a -> a -> Bool)
+    -> (a -> a -> Maybe similar)
     -> (Int -> Maybe a)
     -> (Int -> Maybe a)
     -> Int
     -> Int
     -> List ( Int, Int )
     -> ( List ( Int, Int ), Bool )
-snake areSimilar getA getB nextX nextY path =
+snake areEqual areSimilar getA getB nextX nextY path =
     case ( getA nextX, getB nextY ) of
         ( Just a, Just b ) ->
-            if a == b || areSimilar a b /= Nothing then
-                snake areSimilar
+            if areEqual a b || areSimilar a b /= Nothing then
+                snake areEqual
+                    areSimilar
                     getA
                     getB
                     (nextX + 1)
@@ -416,30 +419,38 @@ snake areSimilar getA getB nextX nextY path =
 type DiffOptions
     = DiffOptions
         { equalIf : String -> String -> Bool
-        , similarIf : ( String, List Char ) -> ( String, List Char ) -> Maybe (List (Change Never Char))
+        , similarIf : ( String, List Int ) -> ( String, List Int ) -> Maybe (List (Change Never Int))
         }
 
 
 {-| Calculate the diff between two multiline strings.
 -}
 diffLinesWith : DiffOptions -> String -> String -> List (Change (List (Change Never Char)) String)
-diffLinesWith (DiffOptions options) from to =
+diffLinesWith options from to =
     let
-        prepare : String -> List ( String, List Char )
+        prepare : String -> List ( String, List Int )
         prepare s =
             s
                 |> String.lines
-                |> List.map (\line -> ( line, String.toList line ))
+                |> List.map (\line -> ( line, String.toList line |> List.map Char.toCode ))
+
+        toChar : Change Never Int -> Change Never Char
+        toChar change =
+            case change of
+                Added a ->
+                    Added (Char.fromCode a)
+
+                Removed r ->
+                    Removed (Char.fromCode r)
+
+                Similar _ _ ever ->
+                    never ever
+
+                NoChange n ->
+                    NoChange (Char.fromCode n)
     in
     diffWith
-        (\(( bs, _ ) as b) (( as_, _ ) as a) ->
-            if options.equalIf bs as_ then
-                Just (Err ())
-
-            else
-                options.similarIf b a
-                    |> Maybe.map Ok
-        )
+        (\b a -> areStringsSimilar options b a)
         (prepare from)
         (prepare to)
         |> List.map
@@ -458,8 +469,22 @@ diffLinesWith (DiffOptions options) from to =
                         NoChange b
 
                     Similar ( b, _ ) ( a, _ ) (Ok d) ->
-                        Similar b a d
+                        Similar b a (List.map toChar d)
             )
+
+
+areStringsSimilar :
+    DiffOptions
+    -> ( String, List Int )
+    -> ( String, List Int )
+    -> Maybe (Result () (List (Change Never Int)))
+areStringsSimilar (DiffOptions options) (( bs, _ ) as b) (( as_, _ ) as a) =
+    if options.equalIf bs as_ then
+        Just (Err ())
+
+    else
+        options.similarIf b a
+            |> Maybe.map Ok
 
 
 {-| Default comparison options.
@@ -472,12 +497,13 @@ defaultOptions =
         }
 
 
-smallDifference : ( String, List Char ) -> ( String, List Char ) -> Maybe (List (Change Never Char))
+smallDifference : ( String, List Int ) -> ( String, List Int ) -> Maybe (List (Change Never Int))
 smallDifference ( ls, ll ) ( rs, rl ) =
     let
-        delta : List (Change Never Char)
+        delta : List (Change Never Int)
         delta =
-            diff ll rl
+            testDiff (\l r -> l - r == 0) (\_ _ -> Nothing) ll rl
+                |> Maybe.withDefault []
 
         minLength : Int
         minLength =
