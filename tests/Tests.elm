@@ -27,12 +27,13 @@ basic =
 
 runManyTimes : Int -> String -> String -> (() -> Expectation)
 runManyTimes times a_ b_ =
-    let
-        total : Int
-        total =
-            List.foldl (\_ n -> n + List.length (diffLines a_ b_)) 0 (List.range 1 times)
-    in
-    \_ -> total |> Expect.greaterThan 0
+    \_ ->
+        let
+            total : Int
+            total =
+                List.foldl (\_ n -> n + List.length (diffLines a_ b_)) 0 (List.range 1 times)
+        in
+        total |> Expect.greaterThan 0
 
 
 perf : Test
