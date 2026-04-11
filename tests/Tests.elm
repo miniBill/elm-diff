@@ -1,6 +1,6 @@
 module Tests exposing (basic, perf)
 
-import Diff exposing (Change(..), diff, diffLines)
+import Diff exposing (Change(..), diff)
 import Expect exposing (Expectation)
 import Test exposing (Test, describe, test)
 
@@ -25,38 +25,43 @@ basic =
         ]
 
 
-runManyTimes : Int -> String -> String -> (() -> Expectation)
-runManyTimes times a_ b_ =
+runManyTimes : Int -> (String -> String -> List b) -> String -> String -> (() -> Expectation)
+runManyTimes times diffFunction a_ b_ =
     \_ ->
         let
             total : Int
             total =
-                List.foldl (\_ n -> n + List.length (diffLines a_ b_)) 0 (List.range 1 times)
+                List.foldl (\_ n -> n + List.length (diffFunction a_ b_)) 0 (List.range 1 times)
         in
         total |> Expect.greaterThan 0
 
 
 perf : Test
 perf =
-    describe "Perf"
-        [ test "exactly same" (runManyTimes 100 a a)
-        , test "add line to first" (runManyTimes 100 a b)
-        , test "add line to last" (runManyTimes 100 a c)
-        , test "drop first line" (runManyTimes 100 a d)
-        , test "remove line at middle" (runManyTimes 100 a e)
-        , test "add line at middle" (runManyTimes 100 a f)
+    perfWith Diff.diffLines 10 "diffLines"
+
+
+perfWith : (String -> String -> List a) -> Int -> String -> Test
+perfWith diffFunction runCount label =
+    describe ("Perf (" ++ label ++ ")")
+        [ test "exactly same" (runManyTimes (10 * runCount) diffFunction a a)
+        , test "add line to first" (runManyTimes (10 * runCount) diffFunction a b)
+        , test "add line to last" (runManyTimes (10 * runCount) diffFunction a c)
+        , test "drop first line" (runManyTimes (10 * runCount) diffFunction a d)
+        , test "remove line at middle" (runManyTimes (10 * runCount) diffFunction a e)
+        , test "add line at middle" (runManyTimes (10 * runCount) diffFunction a f)
 
         -- O(ND): 0.63s ( O(ND) = (280*2)*(280*2) )
         -- O(NP): 0.32s ( O(NP) = (280*2)*((280*2-0)/2) )
-        , test "modify all" (runManyTimes 10 a g)
+        , test "modify all" (runManyTimes runCount diffFunction a g)
 
         -- O(ND): 0.13s ( O(ND) = 280*280 )
         -- O(NP): 0.0s ( O(NP) = 280*((280-280)/2) )
-        , test "add all" (runManyTimes 10 "" a)
+        , test "add all" (runManyTimes runCount diffFunction "" a)
 
         -- O(ND): 0.13s ( O(ND) = 280*280 )
         -- O(NP): 0.0s ( O(NP) = 280*((280-280)/2) )
-        , test "remove all" (runManyTimes 10 a "")
+        , test "remove all" (runManyTimes runCount diffFunction a "")
         ]
 
 
