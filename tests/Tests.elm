@@ -38,7 +38,10 @@ runManyTimes times diffFunction a_ b_ =
 
 perf : Test
 perf =
-    perfWith Diff.diffLines 10 "diffLines"
+    describe "Perf"
+        [ perfWith Diff.diffLines 10 "diffLines"
+        , perfWith (Diff.diffLinesWith Diff.defaultOptions) 1 "diffLinesWith"
+        ]
 
 
 perfWith : (String -> String -> List a) -> Int -> String -> Test
