@@ -134,7 +134,7 @@ diffToString options lines =
                 case head of
                     NoChange _ ->
                         if i == 0 then
-                            List.reverse (List.take options.context (List.reverse tail))
+                            List.reverse (List.take options.context (List.reverse (head :: tail)))
 
                         else if i == groupCount - 1 then
                             head
